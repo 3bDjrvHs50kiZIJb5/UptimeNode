@@ -1,0 +1,75 @@
+[
+  {
+    "name": "检验大叔官网",
+    "url": "https://www.jianyandashu.com",
+    "keywords": [
+      "检验大叔",
+      "jianyandashu"
+    ]
+  },
+  {
+    "name": "AI检验大叔",
+    "url": "https://ai.jianyandashu.com"
+  },
+  {
+    "name": "电子记录",
+    "url": "https://f.jianyandashu.com"
+  },
+  {
+    "name": "电子记录 API",
+    "url": "https://f-api.jianyandashu.com"
+  },
+  {
+    "name": "检验科HR助手",
+    "url": "https://hr.jianyandashu.com"
+  },
+  {
+    "name": "MD 微信",
+    "url": "https://md.jianyandashu.com"
+  },
+  {
+    "name": "Vaultwarden",
+    "url": "https://vaultwarden.jianyandashu.com"
+  },
+  {
+    "name": "忍者",
+    "url": "https://www.renzhe.org/1/update.xml"
+  },
+  {
+    "name": "SmartQCPro API",
+    "url": "https://smartqcpro-api.sightnovo.com/"
+  },
+  {
+    "name": "SmartQCPro",
+    "url": "https://smartx.sightnovo.com/smartx//#/login",
+    "keywords": [
+      "myproject"
+    ]
+  },
+  {
+    "name": "SmartQC App",
+    "url": "https://smartqc.app/",
+    "keywords": [
+      "SmartQC"
+    ]
+  },
+  {
+    "name": "CDC",
+    "url": "https://cdc.cloudpivotlink.com/",
+    "keywords": [
+      "logo.png"
+    ]
+  },
+  {
+    "name": "CloudPivotLink",
+    "url": "https://cloudpivotlink.com/"
+  },
+  {
+    "name": "ForwardHub",
+    "url": "https://forwardhub.jianyandashu.com/",
+    "keywords": [
+      "ForwardHub",
+      "多文件转发器"
+    ]
+  }
+]
