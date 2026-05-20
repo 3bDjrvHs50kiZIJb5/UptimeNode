@@ -16,7 +16,7 @@ export const defaultConfig = {
   checkIntervalMs: Number(process.env.CHECK_INTERVAL_MS || 60_000),
   requestTimeoutMs: Number(process.env.REQUEST_TIMEOUT_MS || 10_000),
   sslCheckTimeoutMs: Number(process.env.SSL_CHECK_TIMEOUT_MS || 10_000),
-  failureThreshold: Number(process.env.FAILURE_THRESHOLD || 3),
+  failureThreshold: Number(process.env.FAILURE_THRESHOLD || 10),
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
   telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
   telegramEnabled: process.env.TELEGRAM_ENABLED !== 'false',

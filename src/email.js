@@ -42,7 +42,7 @@ export async function sendEmail(payload) {
 }
 
 export function formatSiteDownEmail(site, result) {
-  const subject = `站点连续失败警报：${site.name}`;
+  const subject = `站点确认异常警报：${site.name}`;
   const text = [
     `站点名称：${site.name}`,
     `站点地址：${site.url}`,
@@ -54,7 +54,7 @@ export function formatSiteDownEmail(site, result) {
   ].join('\n');
 
   const html = [
-    '<h3>站点连续失败警报</h3>',
+    '<h3>站点确认异常警报</h3>',
     `<p><b>站点名称：</b>${site.name}</p>`,
     `<p><b>站点地址：</b>${site.url}</p>`,
     `<p><b>当前状态：</b>${result.status}</p>`,

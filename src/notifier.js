@@ -249,7 +249,7 @@ export function formatSiteDownMessage(site, result) {
     `📊 <b>网站信息:</b>`,
     `• 名称: ${site.name}`,
     `• URL: ${site.url}`,
-    `• 连续失败: ${result.consecutiveFailures} 次`,
+    `• 连续失败: ${result.consecutiveFailures}/${result.failureThreshold || 10} 次`,
     '',
     `⏰ <b>检测时间:</b> ${timestamp}`,
     '',

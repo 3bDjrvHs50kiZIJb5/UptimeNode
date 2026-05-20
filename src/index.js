@@ -340,17 +340,31 @@ function renderPage() {
       }
 
       els.siteRows.innerHTML = filtered.map(item => {
-        const statusClass = item.status === 'up' ? 'status-up' : item.status === 'down' ? 'status-down' : 'status-warn';
-        const keywordResult = item.status === 'down'
+        const threshold = Number(item.failureThreshold || 10);
+        const pendingFailures = Number(item.consecutiveFailures || 0);
+        let statusText = item.status || '-';
+        let statusClass = 'status-warn';
+        if (item.status === 'down') {
+          statusClass = 'status-down';
+        } else if (pendingFailures > 0) {
+          statusText = 'up (' + pendingFailures + '/' + threshold + ')';
+          statusClass = 'status-warn';
+        } else {
+          statusText = 'up';
+          statusClass = 'status-up';
+        }
+        const keywordResult = item.checkOk === false && item.keywordMatched === false
           ? '<span class="status-down">未命中</span>'
-          : item.keywordMatched === false
-            ? '<span class="status-down">未命中</span>'
-            : '<span class="status-up">命中</span>';
+          : item.checkOk === false
+            ? '<span class="status-down">-</span>'
+            : item.keywordMatched === false
+              ? '<span class="status-down">未命中</span>'
+              : '<span class="status-up">命中</span>';
         const sslDaysText = typeof item.sslDaysLeft === 'number' ? item.sslDaysLeft + ' 天' : '-';
         return '<tr>' +
           '<td><strong>' + escapeHtml(item.name || '-') + '</strong></td>' +
           '<td><a href="' + escapeHtml(item.url || '#') + '" target="_blank" rel="noreferrer">' + escapeHtml(item.url || '-') + '</a></td>' +
-          '<td class="' + statusClass + '">' + escapeHtml(item.status || '-') + '</td>' +
+          '<td class="' + statusClass + '">' + escapeHtml(statusText) + '</td>' +
           '<td>' + escapeHtml(item.httpStatus ?? '-') + '</td>' +
           '<td>' + escapeHtml(item.latencyMs ?? '-') + ' ms</td>' +
           '<td>' + keywordResult + '</td>' +

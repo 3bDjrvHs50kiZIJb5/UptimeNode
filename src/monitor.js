@@ -152,7 +152,7 @@ function evaluateKeywords(body, keywords = []) {
   };
 }
 
-// 执行单个站点的完整检测流程。
+// 执行单次站点探测，返回本次检测是否成功（不等同于站点最终状态）。
 async function checkSite(site, config) {
   const url = normalizeUrl(site.url);
   log.debug('checking site', { name: site.name, url });
@@ -161,15 +161,17 @@ async function checkSite(site, config) {
   try {
     const response = await fetchWithTimeout(url, config.requestTimeoutMs);
     const keywordResult = evaluateKeywords(response.body, site.keywords || []);
-    const status = response.ok && (keywordResult.keywordEnabled ? keywordResult.keywordMatched : true) ? 'up' : 'down';
-    const errorMessage = response.ok
-      ? (keywordResult.keywordEnabled && !keywordResult.keywordMatched ? '页面未包含指定关键字' : null)
-      : `HTTP ${response.status}`;
+    const checkOk = response.ok && (keywordResult.keywordEnabled ? keywordResult.keywordMatched : true);
+    const errorMessage = checkOk
+      ? null
+      : response.ok
+        ? '页面未包含指定关键字'
+        : `HTTP ${response.status}`;
 
     return {
       name: site.name,
       url,
-      status,
+      checkOk,
       httpStatus: response.status,
       latencyMs: response.latencyMs,
       errorMessage,
@@ -180,11 +182,10 @@ async function checkSite(site, config) {
       sslDaysLeft: sslResult.sslDaysLeft,
       sslHoursLeft: sslResult.sslHoursLeft,
       sslExpiresAt: sslResult.sslExpiresAt,
-      checkedAt: new Date().toISOString(),
-      consecutiveFailures: 0
+      checkedAt: new Date().toISOString()
     };
   } catch (error) {
-    log.warn('site check failed', {
+    log.warn('site probe failed', {
       name: site.name,
       url,
       error: error instanceof Error ? error.message : String(error)
@@ -192,7 +193,7 @@ async function checkSite(site, config) {
     return {
       name: site.name,
       url,
-      status: 'down',
+      checkOk: false,
       httpStatus: 0,
       latencyMs: 0,
       errorMessage: error instanceof Error ? error.message : String(error),
@@ -204,44 +205,51 @@ async function checkSite(site, config) {
       sslDaysLeft: sslResult.sslDaysLeft,
       sslHoursLeft: sslResult.sslHoursLeft,
       sslExpiresAt: sslResult.sslExpiresAt,
-      checkedAt: new Date().toISOString(),
-      consecutiveFailures: 0
+      checkedAt: new Date().toISOString()
     };
   }
 }
 
-// 根据检测结果发送 Telegram 和邮件告警。
-async function handleAlerts(site, result, previousState) {
-  const isDown = result.status === 'down';
-  const wasDown = previousState?.status === 'down';
-  const failureThreshold = Number(process.env.FAILURE_THRESHOLD || 3);
+// 根据连续失败次数确定站点状态，并在确认宕机/恢复时发送告警。
+async function applyFailureState(site, result, previousState, failureThreshold) {
+  const wasConfirmedDown = previousState?.status === 'down';
+  result.failureThreshold = failureThreshold;
 
-  if (isDown) {
+  if (!result.checkOk) {
     const nextFailures = (previousState?.consecutiveFailures || 0) + 1;
     result.consecutiveFailures = nextFailures;
 
-    if (nextFailures >= failureThreshold && !wasDown) {
-      const telegramOk = await sendTelegramMessage(formatSiteDownMessage(site, result));
-      const email = formatSiteDownEmail(site, result);
-      const emailOk = await sendEmail({
-        to: process.env.EMAIL_TO || '',
-        subject: email.subject,
-        text: email.text,
-        html: email.html
-      });
-      result.emailAlertSent = emailOk;
-      log.info('down alerts processed', {
-        name: site.name,
-        url: site.url,
-        consecutiveFailures: nextFailures,
-        telegramOk,
-        emailOk
-      });
+    if (nextFailures >= failureThreshold) {
+      result.status = 'down';
+      if (!wasConfirmedDown) {
+        const telegramOk = await sendTelegramMessage(formatSiteDownMessage(site, result));
+        const email = formatSiteDownEmail(site, result);
+        const emailOk = await sendEmail({
+          to: process.env.EMAIL_TO || '',
+          subject: email.subject,
+          text: email.text,
+          html: email.html
+        });
+        result.emailAlertSent = emailOk;
+        log.info('down alerts processed', {
+          name: site.name,
+          url: site.url,
+          consecutiveFailures: nextFailures,
+          failureThreshold,
+          telegramOk,
+          emailOk
+        });
+      }
+    } else {
+      result.status = 'up';
+      result.emailAlertSent = previousState?.emailAlertSent || false;
     }
   } else {
     result.consecutiveFailures = 0;
-    result.emailAlertSent = false;
-    if (wasDown) {
+    result.status = 'up';
+    result.errorMessage = null;
+
+    if (wasConfirmedDown) {
       const telegramOk = await sendTelegramMessage(formatSiteRecoveryMessage(site, result));
       const email = formatSiteRecoveryEmail(site, result);
       const emailOk = await sendEmail({
@@ -257,8 +265,13 @@ async function handleAlerts(site, result, previousState) {
         emailOk
       });
     }
-  }
 
+    result.emailAlertSent = false;
+  }
+}
+
+// 处理 SSL 到期类告警（与站点连续失败逻辑无关）。
+async function handleSslAlerts(site, result, previousState) {
   if (result.sslStatus === 'up' && typeof result.sslDaysLeft === 'number') {
     if (result.sslDaysLeft <= 7) {
       const lastAlertAt = previousState?.sslLastAlertAt || 0;
@@ -295,31 +308,32 @@ export async function pollOnce() {
   const config = {
     requestTimeoutMs: Number(process.env.REQUEST_TIMEOUT_MS || 10000),
     sslCheckTimeoutMs: Number(process.env.SSL_CHECK_TIMEOUT_MS || 10000),
-    failureThreshold: Number(process.env.FAILURE_THRESHOLD || 3)
+    failureThreshold: Number(process.env.FAILURE_THRESHOLD || 10)
   };
 
   const sites = await loadSites();
   const results = [];
-  log.info('poll started', { siteCount: sites.length });
+  log.info('poll started', { siteCount: sites.length, failureThreshold: config.failureThreshold });
 
   for (const site of sites) {
     const previousState = state.get(site.url) || null;
     const result = await checkSite(site, config);
-    result.consecutiveFailures = previousState?.consecutiveFailures || 0;
     result.sslLastAlertAt = previousState?.sslLastAlertAt || 0;
-    result.emailAlertSent = previousState?.emailAlertSent || false;
-    await handleAlerts(site, result, previousState);
+    await applyFailureState(site, result, previousState, config.failureThreshold);
+    await handleSslAlerts(site, result, previousState);
     state.set(site.url, result);
     results.push(result);
     log.info('site checked', {
       name: result.name,
       url: result.url,
+      checkOk: result.checkOk,
       status: result.status,
       httpStatus: result.httpStatus,
       latencyMs: result.latencyMs,
       sslStatus: result.sslStatus,
       sslDaysLeft: result.sslDaysLeft,
       consecutiveFailures: result.consecutiveFailures,
+      failureThreshold: config.failureThreshold,
       errorMessage: result.errorMessage || null
     });
   }
