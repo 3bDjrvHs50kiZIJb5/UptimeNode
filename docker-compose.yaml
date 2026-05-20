@@ -11,15 +11,6 @@ services:
       - .env
     environment:
       TZ: Asia/Shanghai
-      CHECK_INTERVAL_MS: 60000
-      REQUEST_TIMEOUT_MS: 10000
-      SSL_CHECK_TIMEOUT_MS: 10000
-      FAILURE_THRESHOLD: 3
-      TELEGRAM_ENABLED: "false"
-      EMAIL_API_URL: ''
-      EMAIL_API_KEY: ''
-      EMAIL_TO: ''
-      EMAIL_FAILURE_THRESHOLD: 10
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

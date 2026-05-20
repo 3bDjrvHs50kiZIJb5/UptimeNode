@@ -3,15 +3,20 @@ import https from 'node:https';
 import tls from 'node:tls';
 import { loadSites, saveReport } from './storage.js';
 import { sendTelegramMessage, formatSiteDownMessage, formatSiteRecoveryMessage, formatSslExpiryMessage } from './notifier.js';
-import { sendEmail, formatSiteDownEmail, formatSiteRecoveryEmail } from './email.js';
+import { sendEmail, formatSiteDownEmail, formatSiteRecoveryEmail, formatSslExpiryEmail } from './email.js';
+import { createLogger } from './logger.js';
+
+const log = createLogger('monitor');
 
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const state = new Map();
 
+// 统一整理站点 URL，去掉首尾空格。
 function normalizeUrl(input) {
   return String(input || '').trim();
 }
 
+// 从 URL 中提取主机名，供后续判断使用。
 function getHostname(url) {
   try {
     return new URL(url).hostname;
@@ -20,10 +25,12 @@ function getHostname(url) {
   }
 }
 
+// 把秒数换算成天数。
 function secondsToDays(seconds) {
   return Math.floor(seconds / 86400);
 }
 
+// 带超时控制地请求页面内容。
 async function fetchWithTimeout(url, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
@@ -51,6 +58,7 @@ async function fetchWithTimeout(url, timeoutMs) {
   }
 }
 
+// 检查站点 SSL 证书剩余时间和状态。
 async function checkSslCertificate(url, timeoutMs) {
   try {
     const parsed = new URL(url);
@@ -125,6 +133,7 @@ async function checkSslCertificate(url, timeoutMs) {
   }
 }
 
+// 判断页面内容是否命中配置的关键字。
 function evaluateKeywords(body, keywords = []) {
   if (!Array.isArray(keywords) || keywords.length === 0) {
     return {
@@ -143,8 +152,10 @@ function evaluateKeywords(body, keywords = []) {
   };
 }
 
+// 执行单个站点的完整检测流程。
 async function checkSite(site, config) {
   const url = normalizeUrl(site.url);
+  log.debug('checking site', { name: site.name, url });
   const sslResult = await checkSslCertificate(url, config.sslCheckTimeoutMs);
 
   try {
@@ -173,6 +184,11 @@ async function checkSite(site, config) {
       consecutiveFailures: 0
     };
   } catch (error) {
+    log.warn('site check failed', {
+      name: site.name,
+      url,
+      error: error instanceof Error ? error.message : String(error)
+    });
     return {
       name: site.name,
       url,
@@ -194,43 +210,51 @@ async function checkSite(site, config) {
   }
 }
 
+// 根据检测结果发送 Telegram 和邮件告警。
 async function handleAlerts(site, result, previousState) {
   const isDown = result.status === 'down';
   const wasDown = previousState?.status === 'down';
   const failureThreshold = Number(process.env.FAILURE_THRESHOLD || 3);
-  const emailFailureThreshold = Number(process.env.EMAIL_FAILURE_THRESHOLD || 10);
 
   if (isDown) {
     const nextFailures = (previousState?.consecutiveFailures || 0) + 1;
     result.consecutiveFailures = nextFailures;
 
     if (nextFailures >= failureThreshold && !wasDown) {
-      await sendTelegramMessage(formatSiteDownMessage(site, result));
-    }
-
-    if (nextFailures >= emailFailureThreshold && previousState?.emailAlertSent !== true) {
+      const telegramOk = await sendTelegramMessage(formatSiteDownMessage(site, result));
       const email = formatSiteDownEmail(site, result);
-      const ok = await sendEmail({
+      const emailOk = await sendEmail({
         to: process.env.EMAIL_TO || '',
         subject: email.subject,
         text: email.text,
         html: email.html
       });
-      if (ok) {
-        result.emailAlertSent = true;
-      }
+      result.emailAlertSent = emailOk;
+      log.info('down alerts processed', {
+        name: site.name,
+        url: site.url,
+        consecutiveFailures: nextFailures,
+        telegramOk,
+        emailOk
+      });
     }
   } else {
     result.consecutiveFailures = 0;
     result.emailAlertSent = false;
     if (wasDown) {
-      await sendTelegramMessage(formatSiteRecoveryMessage(site, result));
+      const telegramOk = await sendTelegramMessage(formatSiteRecoveryMessage(site, result));
       const email = formatSiteRecoveryEmail(site, result);
-      await sendEmail({
+      const emailOk = await sendEmail({
         to: process.env.EMAIL_TO || '',
         subject: email.subject,
         text: email.text,
         html: email.html
+      });
+      log.info('recovery notifications processed', {
+        name: site.name,
+        url: site.url,
+        telegramOk,
+        emailOk
       });
     }
   }
@@ -243,8 +267,22 @@ async function handleAlerts(site, result, previousState) {
         : lastAlertAt === 0 || new Date(lastAlertAt).toDateString() !== new Date().toDateString();
 
       if (shouldSend) {
-        await sendTelegramMessage(formatSslExpiryMessage(site, result));
+        const telegramOk = await sendTelegramMessage(formatSslExpiryMessage(site, result));
+        const email = formatSslExpiryEmail(site, result);
+        const emailOk = await sendEmail({
+          to: process.env.EMAIL_TO || '',
+          subject: email.subject,
+          text: email.text,
+          html: email.html
+        });
         result.sslLastAlertAt = Date.now();
+        log.info('ssl alert processed', {
+          name: site.name,
+          url: site.url,
+          sslDaysLeft: result.sslDaysLeft,
+          telegramOk,
+          emailOk
+        });
       } else {
         result.sslLastAlertAt = lastAlertAt;
       }
@@ -252,6 +290,7 @@ async function handleAlerts(site, result, previousState) {
   }
 }
 
+// 手动或定时触发一次全量站点检测。
 export async function pollOnce() {
   const config = {
     requestTimeoutMs: Number(process.env.REQUEST_TIMEOUT_MS || 10000),
@@ -261,6 +300,7 @@ export async function pollOnce() {
 
   const sites = await loadSites();
   const results = [];
+  log.info('poll started', { siteCount: sites.length });
 
   for (const site of sites) {
     const previousState = state.get(site.url) || null;
@@ -271,6 +311,17 @@ export async function pollOnce() {
     await handleAlerts(site, result, previousState);
     state.set(site.url, result);
     results.push(result);
+    log.info('site checked', {
+      name: result.name,
+      url: result.url,
+      status: result.status,
+      httpStatus: result.httpStatus,
+      latencyMs: result.latencyMs,
+      sslStatus: result.sslStatus,
+      sslDaysLeft: result.sslDaysLeft,
+      consecutiveFailures: result.consecutiveFailures,
+      errorMessage: result.errorMessage || null
+    });
   }
 
   const report = {
@@ -279,24 +330,35 @@ export async function pollOnce() {
   };
 
   await saveReport(report);
+  log.info('poll finished', {
+    updatedAt: report.updatedAt,
+    siteCount: report.sites.length,
+    downCount: report.sites.filter(item => item.status === 'down').length
+  });
   return report;
 }
 
+// 启动定时轮询任务。
 export function startPolling() {
   const intervalMs = Number(process.env.CHECK_INTERVAL_MS || 60000);
   const run = async () => {
     try {
       const report = await pollOnce();
-      console.log(`[monitor] checked ${report.sites.length} sites at ${report.updatedAt}`);
+      log.info('scheduled poll finished', {
+        siteCount: report.sites.length,
+        updatedAt: report.updatedAt
+      });
     } catch (error) {
-      console.error('[monitor] polling failed:', error);
+      log.error('scheduled poll failed', error);
     }
   };
 
+  log.info('scheduled polling started', { intervalMs });
   void run();
   return setInterval(run, intervalMs);
 }
 
+// 导出当前内存中的最新站点状态。
 export function getSnapshot() {
   return Array.from(state.values());
 }

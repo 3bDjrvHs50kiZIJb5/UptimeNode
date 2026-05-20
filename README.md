@@ -13,6 +13,7 @@
 - 支持 Telegram 告警通知
 - 简单的网页管理面板，支持密码访问
 - 本地 JSON 存储站点配置
+- 运行日志按天写入 `logs/YYYY-MM-DD.log`，自动保留最近 10 天
 
 ## 目录说明
 
@@ -37,14 +38,21 @@
 - `CHECK_INTERVAL_MS`：轮询间隔，默认 `60000`
 - `REQUEST_TIMEOUT_MS`：请求超时，默认 `10000`
 - `SSL_CHECK_TIMEOUT_MS`：SSL 检查超时，默认 `10000`
-- `FAILURE_THRESHOLD`：连续失败多少次后发 Telegram，默认 `3`
-- `EMAIL_FAILURE_THRESHOLD`：连续失败多少次后发邮件，默认 `10`
+- `FAILURE_THRESHOLD`：连续失败多少次后发通知，默认 `3`
 
 ### Telegram 配置
 
 - `TELEGRAM_ENABLED`
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
+- `TEST_NOTIFICATION_KEY`：公开页面下调用测试通知时使用的密钥
+
+启用后，机器人会自动轮询 Telegram 消息，并回复以下指令：
+
+- `id` / `/id` / `ID` / `/ID`：返回当前聊天的 ID 和用户名
+- `help` / `/help`：返回可用命令说明
+
+如果你在群里希望直接发送普通文本 `id` 也能回复，需要在 BotFather 里关闭隐私模式；否则请使用 `/id`。
 
 ### 邮件配置
 
@@ -111,5 +119,5 @@ docker compose up -d --build
 
 - `.env` 不要提交到仓库
 - `data/report.json` 是运行时生成文件，不需要手动维护
+- `logs/` 目录里的日志会按天分文件，并自动清理 10 天前的日志
 - 页面是受密码保护的，但接口是否对外暴露取决于你的部署方式
-

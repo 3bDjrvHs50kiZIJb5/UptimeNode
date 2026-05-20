@@ -1,6 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { dataDir, sitesFile, reportFile } from './config.js';
+import { createLogger } from './logger.js';
+
+const log = createLogger('storage');
 
 async function ensureDir(filePath) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -27,6 +30,7 @@ export async function ensureStorage() {
   const sites = await readJson(sitesFile, null);
   if (!Array.isArray(sites)) {
     await writeJson(sitesFile, []);
+    log.info('created default sites file', { sitesFile });
   }
 }
 
@@ -38,6 +42,7 @@ export async function loadSites() {
 
 export async function saveSites(sites) {
   await writeJson(sitesFile, sites);
+  log.info('saved sites', { count: Array.isArray(sites) ? sites.length : 0 });
   return sites;
 }
 
@@ -55,11 +60,13 @@ export async function upsertSite(site) {
     sites.push(normalized);
   }
   await saveSites(sites);
+  log.info('upserted site', { name: normalized.name, url: normalized.url, keywordCount: normalized.keywords.length });
   return sites;
 }
 
 export async function saveReport(report) {
   await writeJson(reportFile, report);
+  log.debug('saved report', { updatedAt: report?.updatedAt, siteCount: Array.isArray(report?.sites) ? report.sites.length : 0 });
 }
 
 export async function loadReport() {
