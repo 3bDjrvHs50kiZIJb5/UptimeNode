@@ -9,27 +9,43 @@
   },
   {
     "name": "AI检验大叔",
-    "url": "https://ai.jianyandashu.com"
-  },
-  {
-    "name": "电子记录",
-    "url": "https://f.jianyandashu.com"
-  },
-  {
-    "name": "电子记录 API",
-    "url": "https://f-api.jianyandashu.com"
+    "url": "https://ai.jianyandashu.com",
+    "keywords": [
+      "AI 检验师",
+      "医学检验助手"
+    ]
   },
   {
     "name": "检验科HR助手",
-    "url": "https://hr.jianyandashu.com"
+    "url": "https://hr.jianyandashu.com",
+    "keywords": [
+      "HRLMS",
+      "检验科HR助手"
+    ]
   },
   {
     "name": "MD 微信",
-    "url": "https://md.jianyandashu.com"
+    "url": "https://md.jianyandashu.com",
+    "keywords": [
+      "微信 Markdown",
+      "Doocs"
+    ]
   },
   {
     "name": "Vaultwarden",
-    "url": "https://vaultwarden.jianyandashu.com"
+    "url": "https://vaultwarden.jianyandashu.com",
+    "keywords": [
+      "Vaultwarden Web",
+      "vaultwarden.css"
+    ]
+  },
+  {
+    "name": "Token",
+    "url": "https://token.renzhe.org",
+    "keywords": [
+      "CLI Proxy API Server",
+      "POST /v1/chat/completions"
+    ]
   },
   {
     "name": "忍者",
@@ -37,7 +53,11 @@
   },
   {
     "name": "SmartQCPro API",
-    "url": "https://smartqcpro-api.sightnovo.com/"
+    "url": "https://smartqcpro-api.sightnovo.com/",
+    "keywords": [
+      "AdminBlazor",
+      "qc-dashboard"
+    ]
   },
   {
     "name": "SmartQCPro",
@@ -62,7 +82,11 @@
   },
   {
     "name": "CloudPivotLink",
-    "url": "https://cloudpivotlink.com/"
+    "url": "https://cloudpivotlink.com/",
+    "keywords": [
+      "CloudPivotLink",
+      "擎元数智"
+    ]
   },
   {
     "name": "ForwardHub",
@@ -70,6 +94,21 @@
     "keywords": [
       "ForwardHub",
       "多文件转发器"
+    ]
+  },
+  {
+    "name": "文件站",
+    "url": "https://file.jianyandashu.com",
+    "keywords": [
+      "检验大叔File",
+      "jianyandashu"
+    ]
+  },
+  {
+    "name": "Mailto",
+    "url": "https://mailto.bot123.cc/health",
+    "keywords": [
+      "\"success\":true"
     ]
   }
 ]
