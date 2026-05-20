@@ -23,6 +23,5 @@ export const defaultConfig = {
   emailApiUrl: process.env.EMAIL_API_URL || '',
   emailApiKey: process.env.EMAIL_API_KEY || '',
   emailTo: process.env.EMAIL_TO || '',
-  pagePassword: process.env.PAGE_PASSWORD || '',
-  testNotificationKey: process.env.TEST_NOTIFICATION_KEY || ''
+  pagePassword: process.env.PAGE_PASSWORD || ''
 };

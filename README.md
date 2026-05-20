@@ -45,7 +45,6 @@
 - `TELEGRAM_ENABLED`
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
-- `TEST_NOTIFICATION_KEY`：公开页面下调用测试通知时使用的密钥
 
 启用后，机器人会自动轮询 Telegram 消息，并回复以下指令：
 

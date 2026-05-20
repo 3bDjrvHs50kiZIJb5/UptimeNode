@@ -504,9 +504,7 @@ async function handler(req, res) {
   }
 
   function buildTestAuthorization() {
-    const testKey = String(defaultConfig.testNotificationKey || '').trim();
-    const requestKey = String(req.headers['x-test-notification-key'] || '').trim();
-    return isLoggedIn(req) || (testKey && requestKey && requestKey === testKey);
+    return isLoggedIn(req);
   }
 
   if (req.method === 'POST' && url.pathname === '/test-telegram') {
