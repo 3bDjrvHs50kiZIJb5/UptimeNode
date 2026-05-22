@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UptimeNode 登录</title>
+  <link rel="stylesheet" href="/assets/login.css" />
+</head>
+<body>
+  <div class="wrap">
+    <form class="card" method="POST" action="/login">
+      <h1>请输入访问密码</h1>
+      <p>登录后才能查看站点监控页面。</p>
+      <input type="password" name="password" placeholder="请输入密码" autofocus />
+      <button type="submit">进入</button>
+      <div class="msg">{{MESSAGE}}</div>
+    </form>
+  </div>
+</body>
+</html>

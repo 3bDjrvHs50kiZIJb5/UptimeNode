@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UptimeNode 站点监控</title>
+  <link rel="stylesheet" href="/assets/dashboard.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="title">
+        <h1>UptimeNode 站点监控</h1>
+        <p>首页直接展示每个站点的可达性、HTTP 状态、响应时间、关键字、CF 橙云和 SSL 情况。</p>
+      </div>
+      <div class="actions">
+        <button id="testTelegramBtn" class="secondary" type="button">测试 Telegram</button>
+        <button id="testEmailBtn" class="secondary" type="button">测试邮件</button>
+        <button id="refreshBtn" type="button">手动检查一次</button>
+        <button id="reloadBtn" class="secondary" type="button">刷新页面数据</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="metric-label">站点总数</div>
+        <div class="metric-value" id="totalCount">0</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">正常站点</div>
+        <div class="metric-value" id="upCount">0</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">异常站点</div>
+        <div class="metric-value" id="downCount">0</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">最近检查</div>
+        <div class="metric-value" style="font-size:18px" id="updatedAt">-</div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="small" id="summaryText">正在加载站点信息...</div>
+      <input id="searchInput" type="search" placeholder="搜索站点名称、URL、状态或关键字" />
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>名称</th>
+            <th>URL</th>
+            <th>状态</th>
+            <th>HTTP</th>
+            <th>延迟</th>
+            <th>关键字</th>
+            <th>最近错误</th>
+            <th>CF 橙云</th>
+            <th>SSL 剩余天数</th>
+            <th>检查时间</th>
+          </tr>
+        </thead>
+        <tbody id="siteRows">
+          <tr><td colspan="10" class="muted">加载中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      接口：<code>/health</code>、<code>/sites</code>、<code>/poll</code>、<code>/report</code>、<code>/snapshot</code>、<code>/test-telegram</code>、<code>/test-email</code>
+    </div>
+  </div>
+
+  <script src="/assets/dashboard.js"></script>
+</body>
+</html>

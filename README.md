@@ -8,6 +8,7 @@
 - 检测 HTTP 状态和响应时间
 - 检测页面关键字是否命中
 - 显示 SSL 证书剩余天数
+- 自动检测域名是否经 Cloudflare 橙云（DNS 指向 CF IP 或响应头含 `cf-ray`）；橙云站点跳过 SSL 剩余天数检测与到期告警（页面显示 `-`）
 - 站点连续失败达到阈值后才判定为异常并发送邮件告警
 - 站点恢复后发送邮件通知
 - 支持 Telegram 告警通知
@@ -17,7 +18,9 @@
 
 ## 目录说明
 
-- `src/index.js`：服务入口和网页页面
+- `src/index.js`：服务入口与路由
+- `src/pages.js`：页面模板加载
+- `public/`：前端 HTML / CSS / JS（`/assets/*` 静态资源）
 - `src/monitor.js`：核心监控逻辑
 - `src/storage.js`：站点与报告存储
 - `src/email.js`：邮件接口封装
@@ -65,6 +68,8 @@
 npm install
 npm run dev
 ```
+
+`npm run dev` 会设置 `UPTIME_DEV=1`，**不会启动 Telegram 轮询，也不会发送 Telegram 告警**（避免与 Docker 生产实例重复通知）。换端口示例：`PORT=6099 npm run dev`。
 
 启动后浏览器访问：
 

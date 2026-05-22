@@ -1,4 +1,5 @@
 import './env.js';
+import { isDevMode, isTelegramEnabled } from './config.js';
 import { createLogger } from './logger.js';
 
 const log = createLogger('telegram');
@@ -21,11 +22,6 @@ function getTelegramToken() {
 // 读取默认的 Telegram 聊天 ID。
 function getTelegramChatId() {
   return process.env.TELEGRAM_CHAT_ID || '';
-}
-
-// 判断 Telegram 通知是否开启。
-function isTelegramEnabled() {
-  return process.env.TELEGRAM_ENABLED !== 'false';
 }
 
 // 组装 Telegram API 请求地址。
@@ -173,6 +169,7 @@ export function startTelegramCommandPolling() {
   if (!enabled || !token) {
     log.info('telegram command polling disabled', {
       enabled,
+      devMode: isDevMode(),
       hasToken: Boolean(token)
     });
     return {

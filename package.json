@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node src/index.js"
+    "dev": "UPTIME_DEV=1 node src/index.js",
+    "dev:local": "UPTIME_DEV=1 PORT=6039 node src/index.js"
   }
 }

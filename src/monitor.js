@@ -1,7 +1,7 @@
 import './env.js';
-import https from 'node:https';
 import tls from 'node:tls';
 import { loadSites, saveReport } from './storage.js';
+import { detectCloudflareProxied } from './cloudflare.js';
 import { sendTelegramMessage, formatSiteDownMessage, formatSiteRecoveryMessage, formatSslExpiryMessage } from './notifier.js';
 import { sendEmail, formatSiteDownEmail, formatSiteRecoveryEmail, formatSslExpiryEmail } from './email.js';
 import { createLogger } from './logger.js';
@@ -47,11 +47,16 @@ async function fetchWithTimeout(url, timeoutMs) {
       }
     });
     const text = await response.text();
+    const headers = {};
+    response.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
     return {
       ok: response.ok,
       status: response.status,
       latencyMs: Date.now() - start,
-      body: text
+      body: text,
+      headers
     };
   } finally {
     clearTimeout(timer);
@@ -152,14 +157,34 @@ function evaluateKeywords(body, keywords = []) {
   };
 }
 
+// CF 橙云时跳过 SSL（公网只能看到边缘证书，剩余天数无参考价值）。
+function sslSkippedForCfProxied() {
+  return {
+    sslStatus: 'skipped_cf',
+    sslError: null,
+    sslDaysLeft: null,
+    sslHoursLeft: null,
+    sslExpiresAt: null
+  };
+}
+
+function applyCfSslSkip(result) {
+  Object.assign(result, sslSkippedForCfProxied());
+}
+
 // 执行单次站点探测，返回本次检测是否成功（不等同于站点最终状态）。
 async function checkSite(site, config) {
   const url = normalizeUrl(site.url);
+  const hostname = getHostname(url);
   log.debug('checking site', { name: site.name, url });
-  const sslResult = await checkSslCertificate(url, config.sslCheckTimeoutMs);
+  const dnsCfResult = await detectCloudflareProxied(hostname);
+  const sslResult = dnsCfResult.cfProxied === true
+    ? sslSkippedForCfProxied()
+    : await checkSslCertificate(url, config.sslCheckTimeoutMs);
 
   try {
     const response = await fetchWithTimeout(url, config.requestTimeoutMs);
+    const cfResult = await detectCloudflareProxied(hostname, response.headers);
     const keywordResult = evaluateKeywords(response.body, site.keywords || []);
     const checkOk = response.ok && (keywordResult.keywordEnabled ? keywordResult.keywordMatched : true);
     const errorMessage = checkOk
@@ -168,7 +193,7 @@ async function checkSite(site, config) {
         ? '页面未包含指定关键字'
         : `HTTP ${response.status}`;
 
-    return {
+    const result = {
       name: site.name,
       url,
       checkOk,
@@ -182,15 +207,21 @@ async function checkSite(site, config) {
       sslDaysLeft: sslResult.sslDaysLeft,
       sslHoursLeft: sslResult.sslHoursLeft,
       sslExpiresAt: sslResult.sslExpiresAt,
+      cfProxied: cfResult.cfProxied,
+      cfProxiedReason: cfResult.cfProxiedReason,
       checkedAt: new Date().toISOString()
     };
+    if (cfResult.cfProxied === true) {
+      applyCfSslSkip(result);
+    }
+    return result;
   } catch (error) {
     log.warn('site probe failed', {
       name: site.name,
       url,
       error: error instanceof Error ? error.message : String(error)
     });
-    return {
+    const result = {
       name: site.name,
       url,
       checkOk: false,
@@ -205,8 +236,14 @@ async function checkSite(site, config) {
       sslDaysLeft: sslResult.sslDaysLeft,
       sslHoursLeft: sslResult.sslHoursLeft,
       sslExpiresAt: sslResult.sslExpiresAt,
+      cfProxied: dnsCfResult.cfProxied,
+      cfProxiedReason: dnsCfResult.cfProxiedReason,
       checkedAt: new Date().toISOString()
     };
+    if (dnsCfResult.cfProxied === true) {
+      applyCfSslSkip(result);
+    }
+    return result;
   }
 }
 
@@ -272,6 +309,9 @@ async function applyFailureState(site, result, previousState, failureThreshold) 
 
 // 处理 SSL 到期类告警（与站点连续失败逻辑无关）。
 async function handleSslAlerts(site, result, previousState) {
+  if (result.cfProxied === true) {
+    return;
+  }
   if (result.sslStatus === 'up' && typeof result.sslDaysLeft === 'number') {
     if (result.sslDaysLeft <= 7) {
       const lastAlertAt = previousState?.sslLastAlertAt || 0;
@@ -332,6 +372,7 @@ export async function pollOnce() {
       latencyMs: result.latencyMs,
       sslStatus: result.sslStatus,
       sslDaysLeft: result.sslDaysLeft,
+      cfProxied: result.cfProxied,
       consecutiveFailures: result.consecutiveFailures,
       failureThreshold: config.failureThreshold,
       errorMessage: result.errorMessage || null

@@ -8,6 +8,7 @@ RUN npm install dotenv --omit=dev --no-audit --no-fund
 
 RUN mkdir -p /app/data /app/logs
 COPY src ./src
+COPY public ./public
 COPY data/sites.json ./data/sites.json
 
 ENV NODE_ENV=production
